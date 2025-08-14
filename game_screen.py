@@ -16,21 +16,13 @@ GAMEPLAY_SCREEN_RECT = pygame.Rect(160, 60, WIDTH-160, HEIGHT-60)  # Main area
 BORDER_WIDTH = 3
 
 
-def draw_layout(surface, map_grid=None):
+def draw_gameplay(surface, map_grid=None):
     surface.fill(BG_COLOR)
-    # Draw container borders only
-    pygame.draw.rect(surface, BORDER_COLOR, PLAYER_STATS_RECT, BORDER_WIDTH)
-    pygame.draw.rect(surface, BORDER_COLOR, GAME_INFO_RECT, BORDER_WIDTH)
-    pygame.draw.rect(surface, BORDER_COLOR, PLAYER_EQUIPMENT_RECT, BORDER_WIDTH)
-    pygame.draw.rect(surface, BORDER_COLOR, GAMEPLAY_SCREEN_RECT, BORDER_WIDTH)
-    # Draw outer border
-    pygame.draw.rect(surface, BORDER_COLOR, pygame.Rect(0, 0, WIDTH, HEIGHT), BORDER_WIDTH)
-
-    # Draw procedural map in gameplay screen
+    # Draw procedural map full screen
     if map_grid is not None:
         map_size = len(map_grid)
-        cell_w = GAMEPLAY_SCREEN_RECT.width / map_size
-        cell_h = GAMEPLAY_SCREEN_RECT.height / map_size
+        cell_w = WIDTH / map_size
+        cell_h = HEIGHT / map_size
         for y in range(map_size):
             for x in range(map_size):
                 val = map_grid[y][x]
@@ -43,12 +35,21 @@ def draw_layout(surface, map_grid=None):
                 else:
                     color = (0,0,0)
                 rect = pygame.Rect(
-                    int(GAMEPLAY_SCREEN_RECT.x + x * cell_w),
-                    int(GAMEPLAY_SCREEN_RECT.y + y * cell_h),
+                    int(x * cell_w),
+                    int(y * cell_h),
                     int(cell_w)+1,
                     int(cell_h)+1
                 )
                 pygame.draw.rect(surface, color, rect)
+
+def draw_ui(surface):
+    # Draw container borders only
+    pygame.draw.rect(surface, BORDER_COLOR, PLAYER_STATS_RECT, BORDER_WIDTH)
+    pygame.draw.rect(surface, BORDER_COLOR, GAME_INFO_RECT, BORDER_WIDTH)
+    pygame.draw.rect(surface, BORDER_COLOR, PLAYER_EQUIPMENT_RECT, BORDER_WIDTH)
+    pygame.draw.rect(surface, BORDER_COLOR, GAMEPLAY_SCREEN_RECT, BORDER_WIDTH)
+    # Draw outer border
+    pygame.draw.rect(surface, BORDER_COLOR, pygame.Rect(0, 0, WIDTH, HEIGHT), BORDER_WIDTH)
 
 # For testing layout independently
 if __name__ == "__main__":
@@ -61,7 +62,7 @@ if __name__ == "__main__":
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-        draw_layout(screen)
+        draw_gameplay(screen)
         pygame.display.update()
         clock.tick(60)
     pygame.quit()

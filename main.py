@@ -2,7 +2,7 @@
 # Simple pygame menu and game
 import pygame
 import sys
-from game_screen import draw_layout, WIDTH, HEIGHT
+from game_screen import draw_gameplay, draw_ui, WIDTH, HEIGHT
 from procedural_map.map_generator import generate_map
 from player import Player
 import random
@@ -57,6 +57,7 @@ class Game:
         self.zoom_index = 0
         self.player = None
         self.create_menu_buttons()
+        self.show_ui = False  # UI toggle state
 
     def create_menu_buttons(self):
         self.buttons = [
@@ -152,7 +153,6 @@ class Game:
             # Camera/viewport logic
             viewport_size = self.zoom_levels[self.zoom_index]
             half_vp = viewport_size // 2
-            # Clamp camera position
             cam_x = max(half_vp, min(self.camera_x, self.map_size - half_vp - 1))
             cam_y = max(half_vp, min(self.camera_y, self.map_size - half_vp - 1))
             # Extract viewport
@@ -163,31 +163,29 @@ class Game:
                     vp_grid = [row[cam_x-half_vp:cam_x+half_vp] for row in self.map_grid[cam_y-half_vp:cam_y+half_vp]]
             else:
                 vp_grid = None
-            draw_layout(win, vp_grid)
-            # Draw enemies
+            draw_gameplay(win, vp_grid)
+            # Draw enemies and player (full screen coordinates)
+            cell_w = WIDTH / viewport_size
+            cell_h = HEIGHT / viewport_size
             if hasattr(self, 'enemies'):
-                cell_w = (WIDTH-160) / viewport_size
-                cell_h = (HEIGHT-60) / viewport_size
                 for enemy in self.enemies:
                     ex, ey = enemy.x, enemy.y
                     if cam_x-half_vp <= ex < cam_x+half_vp and cam_y-half_vp <= ey < cam_y+half_vp:
-                        draw_x = 160 + int((ex - (cam_x-half_vp)) * cell_w)
-                        draw_y = 60 + int((ey - (cam_y-half_vp)) * cell_h)
+                        draw_x = int((ex - (cam_x-half_vp)) * cell_w)
+                        draw_y = int((ey - (cam_y-half_vp)) * cell_h)
                         center_color, outer_color = enemy.get_color()
                         pygame.draw.circle(win, outer_color, (draw_x+cell_w//2, draw_y+cell_h//2), int(min(cell_w,cell_h)//2.2))
                         pygame.draw.circle(win, center_color, (draw_x+cell_w//2, draw_y+cell_h//2), int(min(cell_w,cell_h)//3.5))
-            # Draw player if exists
             if self.player:
-                # Only draw if player is in viewport
                 px, py = self.player.x, self.player.y
                 if cam_x-half_vp <= px < cam_x+half_vp and cam_y-half_vp <= py < cam_y+half_vp:
-                    cell_w = (WIDTH-160) / viewport_size
-                    cell_h = (HEIGHT-60) / viewport_size
-                    draw_x = 160 + int((px - (cam_x-half_vp)) * cell_w)
-                    draw_y = 60 + int((py - (cam_y-half_vp)) * cell_h)
-                    # Draw player as black circle with grey border
+                    draw_x = int((px - (cam_x-half_vp)) * cell_w)
+                    draw_y = int((py - (cam_y-half_vp)) * cell_h)
                     pygame.draw.circle(win, (60,60,60), (draw_x+cell_w//2, draw_y+cell_h//2), int(min(cell_w,cell_h)//2.2))
                     pygame.draw.circle(win, (0,0,0), (draw_x+cell_w//2, draw_y+cell_h//2), int(min(cell_w,cell_h)//3.5))
+            # Draw UI if toggled
+            if self.show_ui:
+                draw_ui(win)
             if self.overlay_active:
                 overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
                 overlay.fill((0,0,0,120))
@@ -212,15 +210,13 @@ class Game:
 
     def handle_event(self, event):
         if self.state == "game":
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                self.overlay_active = not self.overlay_active
-            if self.overlay_active:
-                for btn in self.overlay_buttons:
-                    btn.handle_event(event)
-            else:
-                # Player movement (Arrow keys and WASD)
-                if event.type == pygame.KEYDOWN:
-                    # Arrow keys move player
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_TAB:
+                    self.show_ui = True
+                elif event.key == pygame.K_ESCAPE:
+                    self.overlay_active = not self.overlay_active
+                elif not self.overlay_active:
+                    # Player movement (Arrow keys and WASD)
                     if event.key == pygame.K_LEFT:
                         if self.player:
                             self.player.move(-1, 0)
@@ -252,6 +248,9 @@ class Game:
                 if self.player:
                     self.camera_x = self.player.x
                     self.camera_y = self.player.y
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_TAB:
+                    self.show_ui = False
         else:
             for btn in self.buttons:
                 btn.handle_event(event)
