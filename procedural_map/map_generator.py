@@ -28,33 +28,59 @@ def generate_map(size=128):
         grid[i][size-1] = BORDER
 
     center = size // 2
-    grid[center][center] = ROAD
 
-    # Start with a 4-way intersection
-    for dx, dy in DIRECTIONS:
-        grid[center+dy][center+dx] = ROAD
+    # Make a distinct central region (2 nested squares and cross)
+    central_size_outer = size // 6
+    central_size_inner = size // 9
+    outer_start = center - central_size_outer // 2
+    outer_end = center + central_size_outer // 2
+    inner_start = center - central_size_inner // 2
+    inner_end = center + central_size_inner // 2
 
-    # Road generation state
+    # Outer square
+    for i in range(outer_start, outer_end+1):
+        grid[outer_start][i] = ROAD
+        grid[outer_end][i] = ROAD
+        grid[i][outer_start] = ROAD
+        grid[i][outer_end] = ROAD
+    # Inner square
+    for i in range(inner_start, inner_end+1):
+        grid[inner_start][i] = ROAD
+        grid[inner_end][i] = ROAD
+        grid[i][inner_start] = ROAD
+        grid[i][inner_end] = ROAD
+    # Central cross
+    for i in range(outer_start, outer_end+1):
+        grid[center][i] = ROAD
+        grid[i][center] = ROAD
+
+    # Start branches from the edges of the outer square and cross
     branches = []
-    for dx, dy in DIRECTIONS:
-        branches.append({
-            'x': center+dx,
-            'y': center+dy,
-            'dir': (dx,dy),
-            'length': 0,
-            'parent': None
-        })
+    # Top and bottom edges
+    for i in range(outer_start+1, outer_end):
+        branches.append({'x': i, 'y': outer_start, 'dir': (0,-1), 'length': 0, 'parent': None})
+        branches.append({'x': i, 'y': outer_end, 'dir': (0,1), 'length': 0, 'parent': None})
+    # Left and right edges
+    for i in range(outer_start+1, outer_end):
+        branches.append({'x': outer_start, 'y': i, 'dir': (-1,0), 'length': 0, 'parent': None})
+        branches.append({'x': outer_end, 'y': i, 'dir': (1,0), 'length': 0, 'parent': None})
+    # Cross ends
+    branches.append({'x': center, 'y': outer_start, 'dir': (0,-1), 'length': 0, 'parent': None})
+    branches.append({'x': center, 'y': outer_end, 'dir': (0,1), 'length': 0, 'parent': None})
+    branches.append({'x': outer_start, 'y': center, 'dir': (-1,0), 'length': 0, 'parent': None})
+    branches.append({'x': outer_end, 'y': center, 'dir': (1,0), 'length': 0, 'parent': None})
 
     max_roads = size * 6  # More roads for larger map
     road_count = 0
     junctions = set()
+    min_road_len = max(10, size // 12)  # Minimum road segment length
 
     while branches and road_count < max_roads:
         branch = branches.pop(random.randint(0, len(branches)-1))
         x, y = branch['x'], branch['y']
         dir = branch['dir']
         length = 0
-        max_len = random.randint(size//8, size//3)  # Longer segments for bigger map
+        max_len = random.randint(min_road_len, size//3)  # Ensure minimum length
         turn_chance = 0.2
         junction_chance = 0.15
         loop_chance = 0.08
@@ -66,10 +92,23 @@ def generate_map(size=128):
             nx, ny = x+dir[0], y+dir[1]
             if not in_bounds(nx, ny, size):
                 break
+            # Ensure minimum distance between roads (except at junctions)
+            adjacent_road = False
+            for ddx, ddy in DIRECTIONS:
+                ax, ay = nx+ddx, ny+ddy
+                if (ax, ay) != (x, y) and in_bounds(ax, ay, size) and grid[ay][ax] == ROAD:
+                    adjacent_road = True
+            if adjacent_road:
+                # Allow if connecting at a junction or dead end
+                if length > min_road_len//2 and random.random() < 0.3:
+                    grid[ny][nx] = ROAD
+                    break
+                else:
+                    break
             # Avoid immediate connection to other roads
             if grid[ny][nx] == ROAD:
                 # Loop formation
-                if random.random() < loop_chance and length > 6:
+                if random.random() < loop_chance and length > min_road_len//2:
                     break
                 else:
                     break
@@ -78,7 +117,7 @@ def generate_map(size=128):
             length += 1
             road_count += 1
             # Branching
-            if length > 4 and random.random() < junction_chance:
+            if length > min_road_len//2 and random.random() < junction_chance:
                 if (x, y) not in junctions:
                     junctions.add((x, y))
                     num_branches = random.randint(1,3)
@@ -86,7 +125,13 @@ def generate_map(size=128):
                     for _ in range(num_branches):
                         bdir = random.choice(perp_dirs)
                         bx, by = x+bdir[0], y+bdir[1]
-                        if in_bounds(bx, by, size) and grid[by][bx] != ROAD:
+                        # Ensure new branch doesn't start next to a road
+                        branch_adjacent_road = False
+                        for ddx, ddy in DIRECTIONS:
+                            ax, ay = bx+ddx, by+ddy
+                            if (ax, ay) != (x, y) and in_bounds(ax, ay, size) and grid[ay][ax] == ROAD:
+                                branch_adjacent_road = True
+                        if in_bounds(bx, by, size) and grid[by][bx] != ROAD and not branch_adjacent_road:
                             branches.append({
                                 'x': x,
                                 'y': y,
