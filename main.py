@@ -32,6 +32,33 @@ class Button:
         if event.type == pygame.MOUSEBUTTONDOWN and self.rect.collidepoint(event.pos):
             self.callback()
 
+
+# Player class should not be indented at the same level as Game
+class Player:
+    def __init__(self, map_grid):
+        self.map_grid = map_grid
+        self.map_size = len(map_grid)
+        self.x = self.map_size // 2
+        self.y = self.map_size // 2
+        # Find nearest road cell in center region
+        if map_grid[self.y][self.x] != 0:
+            found = False
+            for dy in range(-2, 3):
+                for dx in range(-2, 3):
+                    nx, ny = self.x + dx, self.y + dy
+                    if 0 <= nx < self.map_size and 0 <= ny < self.map_size:
+                        if map_grid[ny][nx] == 0:
+                            self.x, self.y = nx, ny
+                            found = True
+                            break
+                if found:
+                    break
+    def move(self, dx, dy):
+        nx, ny = self.x + dx, self.y + dy
+        if 0 <= nx < self.map_size and 0 <= ny < self.map_size:
+            if self.map_grid[ny][nx] == 0:
+                self.x, self.y = nx, ny
+
 class Game:
     def __init__(self):
         self.state = "menu"
@@ -46,6 +73,7 @@ class Game:
         self.camera_y = self.map_size // 2
         self.zoom_levels = [24, 34, 48, 64, 96, 128]
         self.zoom_index = 0
+        self.player = None
         self.create_menu_buttons()
 
     def create_menu_buttons(self):
@@ -87,6 +115,7 @@ class Game:
         self.camera_x = self.map_size // 2
         self.camera_y = self.map_size // 2
         self.zoom_index = 0
+        self.player = Player(self.map_grid)
 
     def open_settings(self):
         self.state = "settings"
@@ -129,6 +158,18 @@ class Game:
             else:
                 vp_grid = None
             draw_layout(win, vp_grid)
+            # Draw player if exists
+            if self.player:
+                # Only draw if player is in viewport
+                px, py = self.player.x, self.player.y
+                if cam_x-half_vp <= px < cam_x+half_vp and cam_y-half_vp <= py < cam_y+half_vp:
+                    cell_w = (WIDTH-160) / viewport_size
+                    cell_h = (HEIGHT-60) / viewport_size
+                    draw_x = 160 + int((px - (cam_x-half_vp)) * cell_w)
+                    draw_y = 60 + int((py - (cam_y-half_vp)) * cell_h)
+                    # Draw player as black circle with grey border
+                    pygame.draw.circle(win, (60,60,60), (draw_x+cell_w//2, draw_y+cell_h//2), int(min(cell_w,cell_h)//2.2))
+                    pygame.draw.circle(win, (0,0,0), (draw_x+cell_w//2, draw_y+cell_h//2), int(min(cell_w,cell_h)//3.5))
             if self.overlay_active:
                 overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
                 overlay.fill((0,0,0,120))
@@ -159,18 +200,40 @@ class Game:
                 for btn in self.overlay_buttons:
                     btn.handle_event(event)
             else:
-                # Camera movement
+                # Player movement (Arrow keys and WASD)
                 if event.type == pygame.KEYDOWN:
+                    # Arrow keys move player
                     if event.key == pygame.K_LEFT:
-                        self.camera_x = max(self.camera_x - 2, self.zoom_levels[self.zoom_index] // 2)
+                        if self.player:
+                            self.player.move(-1, 0)
                     elif event.key == pygame.K_RIGHT:
-                        self.camera_x = min(self.camera_x + 2, self.map_size - self.zoom_levels[self.zoom_index] // 2 - 1)
+                        if self.player:
+                            self.player.move(1, 0)
                     elif event.key == pygame.K_UP:
-                        self.camera_y = max(self.camera_y - 2, self.zoom_levels[self.zoom_index] // 2)
+                        if self.player:
+                            self.player.move(0, -1)
                     elif event.key == pygame.K_DOWN:
-                        self.camera_y = min(self.camera_y + 2, self.map_size - self.zoom_levels[self.zoom_index] // 2 - 1)
+                        if self.player:
+                            self.player.move(0, 1)
                     elif event.key == pygame.K_BACKQUOTE:
                         self.zoom_index = (self.zoom_index + 1) % len(self.zoom_levels)
+                    # WASD also moves player
+                    elif event.key == pygame.K_w:
+                        if self.player:
+                            self.player.move(0, -1)
+                    elif event.key == pygame.K_s:
+                        if self.player:
+                            self.player.move(0, 1)
+                    elif event.key == pygame.K_a:
+                        if self.player:
+                            self.player.move(-1, 0)
+                    elif event.key == pygame.K_d:
+                        if self.player:
+                            self.player.move(1, 0)
+                # Camera always follows player
+                if self.player:
+                    self.camera_x = self.player.x
+                    self.camera_y = self.player.y
         else:
             for btn in self.buttons:
                 btn.handle_event(event)
