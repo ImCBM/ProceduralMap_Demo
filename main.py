@@ -112,7 +112,7 @@ class Game:
     def draw(self, win):
         if self.state == "game":
             # Camera/viewport logic
-            viewport_size = 64  # Number of tiles to show in each direction
+            viewport_size = 24  # Fewer tiles for more zoomed-in view
             half_vp = viewport_size // 2
             # Clamp camera position
             cam_x = max(half_vp, min(self.camera_x, self.map_size - half_vp - 1))

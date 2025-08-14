@@ -45,7 +45,7 @@ def generate_map(size=128):
             'parent': None
         })
 
-    max_roads = size * 3
+    max_roads = size * 6  # More roads for larger map
     road_count = 0
     junctions = set()
 
@@ -54,7 +54,7 @@ def generate_map(size=128):
         x, y = branch['x'], branch['y']
         dir = branch['dir']
         length = 0
-        max_len = random.randint(8, 32)
+        max_len = random.randint(size//8, size//3)  # Longer segments for bigger map
         turn_chance = 0.2
         junction_chance = 0.15
         loop_chance = 0.08
