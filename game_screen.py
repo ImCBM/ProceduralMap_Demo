@@ -39,7 +39,7 @@ def draw_layout(surface, map_grid=None):
                 elif val == FOREST:
                     color = (40, 120, 40)   # forest color
                 elif val == BORDER:
-                    color = (120, 60, 60)   # border color
+                    color = (220, 0, 0)    # world border as red
                 else:
                     color = (0,0,0)
                 rect = pygame.Rect(

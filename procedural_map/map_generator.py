@@ -37,22 +37,34 @@ def generate_map(size=128):
     inner_start = center - central_size_inner // 2
     inner_end = center + central_size_inner // 2
 
+    # Track central region cells so they are never overwritten
+    central_cells = set()
     # Outer square
     for i in range(outer_start, outer_end+1):
         grid[outer_start][i] = ROAD
         grid[outer_end][i] = ROAD
         grid[i][outer_start] = ROAD
         grid[i][outer_end] = ROAD
+        central_cells.add((outer_start, i))
+        central_cells.add((outer_end, i))
+        central_cells.add((i, outer_start))
+        central_cells.add((i, outer_end))
     # Inner square
     for i in range(inner_start, inner_end+1):
         grid[inner_start][i] = ROAD
         grid[inner_end][i] = ROAD
         grid[i][inner_start] = ROAD
         grid[i][inner_end] = ROAD
+        central_cells.add((inner_start, i))
+        central_cells.add((inner_end, i))
+        central_cells.add((i, inner_start))
+        central_cells.add((i, inner_end))
     # Central cross
     for i in range(outer_start, outer_end+1):
         grid[center][i] = ROAD
         grid[i][center] = ROAD
+        central_cells.add((center, i))
+        central_cells.add((i, center))
 
     # Start branches from the edges of the outer square and cross
     branches = []
@@ -80,8 +92,8 @@ def generate_map(size=128):
         x, y = branch['x'], branch['y']
         dir = branch['dir']
         length = 0
-        # Bias some branches to reach the border
-        if random.random() < 0.25:
+        # Guarantee some branches reach the border as part of procedural generation
+        if random.random() < 0.25 or (len(branches) < 8 and length == 0):
             # Calculate distance to border in direction
             if dir[0] != 0:
                 max_len = (size-2-x) if dir[0] > 0 else (x-1)
@@ -100,6 +112,9 @@ def generate_map(size=128):
                 dir = random.choice(perp_dirs)
             nx, ny = x+dir[0], y+dir[1]
             if not in_bounds(nx, ny, size):
+                break
+            # Never overwrite central region
+            if (nx, ny) in central_cells:
                 break
             # Ensure minimum distance between roads (except at junctions)
             adjacent_road = False
@@ -142,7 +157,8 @@ def generate_map(size=128):
                             ax, ay = bx+ddx, by+ddy
                             if (ax, ay) != (x, y) and in_bounds(ax, ay, size) and grid[ay][ax] == ROAD:
                                 branch_adjacent_road = True
-                        if in_bounds(bx, by, size) and grid[by][bx] != ROAD and not branch_adjacent_road:
+                        # Never start a branch in the central region
+                        if in_bounds(bx, by, size) and grid[by][bx] != ROAD and not branch_adjacent_road and (bx, by) not in central_cells:
                             branches.append({
                                 'x': x,
                                 'y': y,
