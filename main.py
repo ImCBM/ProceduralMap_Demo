@@ -5,6 +5,10 @@ import sys
 from game_screen import draw_layout, WIDTH, HEIGHT
 from procedural_map.map_generator import generate_map
 from player import Player
+import random
+from enemies.wanderer import WandererEnemy
+from enemies.follower import FollowerEnemy
+from enemies.hunter import HunterEnemy
 
 pygame.init()
 
@@ -94,6 +98,30 @@ class Game:
         self.camera_y = self.map_size // 2
         self.zoom_index = 0
         self.player = Player(self.map_grid)
+        # Spawn up to 10 enemies with type percentages
+        self.enemies = []
+        self.enemy_timers = []
+        road_cells = [(x, y) for y in range(self.map_size) for x in range(self.map_size) if self.map_grid[y][x] == 0 and (x, y) != (self.player.x, self.player.y)]
+        random.shuffle(road_cells)
+        max_enemies = min(10, len(road_cells))
+        # Percentages: 40% wanderer, 30% follower, 30% hunter
+        num_wanderer = int(max_enemies * 0.4)
+        num_follower = int(max_enemies * 0.3)
+        num_hunter = max_enemies - num_wanderer - num_follower
+        # Always spawn exactly max_enemies
+        spawn_types = (['wanderer'] * num_wanderer + ['follower'] * num_follower + ['hunter'] * num_hunter)
+        random.shuffle(spawn_types)
+        for etype in spawn_types:
+            if road_cells:
+                x, y = road_cells.pop()
+                if etype == 'wanderer':
+                    enemy = WandererEnemy(self.map_grid, x, y)
+                elif etype == 'follower':
+                    enemy = FollowerEnemy(self.map_grid, x, y)
+                else:
+                    enemy = HunterEnemy(self.map_grid, x, y)
+                self.enemies.append(enemy)
+                self.enemy_timers.append({'type': etype, 'last_move': 0})
 
     def open_settings(self):
         self.state = "settings"
@@ -136,6 +164,18 @@ class Game:
             else:
                 vp_grid = None
             draw_layout(win, vp_grid)
+            # Draw enemies
+            if hasattr(self, 'enemies'):
+                cell_w = (WIDTH-160) / viewport_size
+                cell_h = (HEIGHT-60) / viewport_size
+                for enemy in self.enemies:
+                    ex, ey = enemy.x, enemy.y
+                    if cam_x-half_vp <= ex < cam_x+half_vp and cam_y-half_vp <= ey < cam_y+half_vp:
+                        draw_x = 160 + int((ex - (cam_x-half_vp)) * cell_w)
+                        draw_y = 60 + int((ey - (cam_y-half_vp)) * cell_h)
+                        center_color, outer_color = enemy.get_color()
+                        pygame.draw.circle(win, outer_color, (draw_x+cell_w//2, draw_y+cell_h//2), int(min(cell_w,cell_h)//2.2))
+                        pygame.draw.circle(win, center_color, (draw_x+cell_w//2, draw_y+cell_h//2), int(min(cell_w,cell_h)//3.5))
             # Draw player if exists
             if self.player:
                 # Only draw if player is in viewport
@@ -220,14 +260,36 @@ def main():
     clock = pygame.time.Clock()
     game = Game()
     while True:
+        dt = clock.tick(60) / 1000.0  # seconds since last frame
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             game.handle_event(event)
+        # Update enemies with timers
+        if hasattr(game, 'enemies') and hasattr(game, 'enemy_timers'):
+            for idx, enemy in enumerate(game.enemies):
+                timer = game.enemy_timers[idx]
+                timer['last_move'] += dt
+                # Set movement interval by type
+                if timer['type'] == 'wanderer':
+                    interval = 1.0  # medium/default
+                elif timer['type'] == 'follower':
+                    interval = 1.5  # slow
+                elif timer['type'] == 'hunter':
+                    interval = 0.6  # fast
+                else:
+                    interval = 1.0
+                if timer['last_move'] >= interval:
+                    if enemy.__class__.__name__ == 'WandererEnemy':
+                        enemy.move()
+                    elif enemy.__class__.__name__ == 'FollowerEnemy':
+                        enemy.move(game.player)
+                    elif enemy.__class__.__name__ == 'HunterEnemy':
+                        enemy.move(game.player)
+                    timer['last_move'] = 0
         game.draw(WIN)
         pygame.display.update()
-        clock.tick(60)
 
 if __name__ == "__main__":
     main()
