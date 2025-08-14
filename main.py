@@ -41,6 +41,9 @@ class Game:
         self.overlay_buttons = []
         self.overlay_active = False
         self.map_grid = None
+        self.map_size = 128  # Larger map size
+        self.camera_x = self.map_size // 2
+        self.camera_y = self.map_size // 2
         self.create_menu_buttons()
 
     def create_menu_buttons(self):
@@ -78,7 +81,9 @@ class Game:
         self.state = "game"
         self.create_game_buttons()
         self.overlay_active = False
-        self.map_grid = generate_map()  # Generate procedural map at game start
+        self.map_grid = generate_map(self.map_size)
+        self.camera_x = self.map_size // 2
+        self.camera_y = self.map_size // 2
 
     def open_settings(self):
         self.state = "settings"
@@ -106,7 +111,18 @@ class Game:
 
     def draw(self, win):
         if self.state == "game":
-            draw_layout(win, self.map_grid)
+            # Camera/viewport logic
+            viewport_size = 64  # Number of tiles to show in each direction
+            half_vp = viewport_size // 2
+            # Clamp camera position
+            cam_x = max(half_vp, min(self.camera_x, self.map_size - half_vp - 1))
+            cam_y = max(half_vp, min(self.camera_y, self.map_size - half_vp - 1))
+            # Extract viewport
+            if self.map_grid:
+                vp_grid = [row[cam_x-half_vp:cam_x+half_vp] for row in self.map_grid[cam_y-half_vp:cam_y+half_vp]]
+            else:
+                vp_grid = None
+            draw_layout(win, vp_grid)
             if self.overlay_active:
                 overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
                 overlay.fill((0,0,0,120))
@@ -136,6 +152,17 @@ class Game:
             if self.overlay_active:
                 for btn in self.overlay_buttons:
                     btn.handle_event(event)
+            else:
+                # Camera movement
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_LEFT:
+                        self.camera_x = max(self.camera_x - 2, 32)
+                    elif event.key == pygame.K_RIGHT:
+                        self.camera_x = min(self.camera_x + 2, self.map_size - 33)
+                    elif event.key == pygame.K_UP:
+                        self.camera_y = max(self.camera_y - 2, 32)
+                    elif event.key == pygame.K_DOWN:
+                        self.camera_y = min(self.camera_y + 2, self.map_size - 33)
         else:
             for btn in self.buttons:
                 btn.handle_event(event)
