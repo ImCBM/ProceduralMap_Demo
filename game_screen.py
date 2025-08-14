@@ -29,8 +29,8 @@ def draw_layout(surface, map_grid=None):
     # Draw procedural map in gameplay screen
     if map_grid is not None:
         map_size = len(map_grid)
-        cell_w = GAMEPLAY_SCREEN_RECT.width // map_size
-        cell_h = GAMEPLAY_SCREEN_RECT.height // map_size
+        cell_w = GAMEPLAY_SCREEN_RECT.width / map_size
+        cell_h = GAMEPLAY_SCREEN_RECT.height / map_size
         for y in range(map_size):
             for x in range(map_size):
                 val = map_grid[y][x]
@@ -43,9 +43,10 @@ def draw_layout(surface, map_grid=None):
                 else:
                     color = (0,0,0)
                 rect = pygame.Rect(
-                    GAMEPLAY_SCREEN_RECT.x + x * cell_w,
-                    GAMEPLAY_SCREEN_RECT.y + y * cell_h,
-                    cell_w, cell_h
+                    int(GAMEPLAY_SCREEN_RECT.x + x * cell_w),
+                    int(GAMEPLAY_SCREEN_RECT.y + y * cell_h),
+                    int(cell_w)+1,
+                    int(cell_h)+1
                 )
                 pygame.draw.rect(surface, color, rect)
 
