@@ -73,14 +73,23 @@ def generate_map(size=128):
     max_roads = size * 6  # More roads for larger map
     road_count = 0
     junctions = set()
-    min_road_len = max(10, size // 12)  # Minimum road segment length
+    min_road_len = max(size // 4, size // 3)  # Much larger minimum road segment length for full coverage
 
     while branches and road_count < max_roads:
         branch = branches.pop(random.randint(0, len(branches)-1))
         x, y = branch['x'], branch['y']
         dir = branch['dir']
         length = 0
-        max_len = random.randint(min_road_len, size//3)  # Ensure minimum length
+        # Bias some branches to reach the border
+        if random.random() < 0.25:
+            # Calculate distance to border in direction
+            if dir[0] != 0:
+                max_len = (size-2-x) if dir[0] > 0 else (x-1)
+            else:
+                max_len = (size-2-y) if dir[1] > 0 else (y-1)
+            max_len = max(min_road_len, max_len)
+        else:
+            max_len = random.randint(min_road_len, size//2)
         turn_chance = 0.2
         junction_chance = 0.15
         loop_chance = 0.08
@@ -98,6 +107,8 @@ def generate_map(size=128):
                 ax, ay = nx+ddx, ny+ddy
                 if (ax, ay) != (x, y) and in_bounds(ax, ay, size) and grid[ay][ax] == ROAD:
                     adjacent_road = True
+            # Only allow perpendicular connections, never diagonals
+            # (No diagonal checks, so this is already enforced)
             if adjacent_road:
                 # Allow if connecting at a junction or dead end
                 if length > min_road_len//2 and random.random() < 0.3:
@@ -125,7 +136,7 @@ def generate_map(size=128):
                     for _ in range(num_branches):
                         bdir = random.choice(perp_dirs)
                         bx, by = x+bdir[0], y+bdir[1]
-                        # Ensure new branch doesn't start next to a road
+                        # Ensure new branch doesn't start next to a road (perpendicular only)
                         branch_adjacent_road = False
                         for ddx, ddy in DIRECTIONS:
                             ax, ay = bx+ddx, by+ddy
